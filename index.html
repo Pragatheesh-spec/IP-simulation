@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Elodea photosynthesis: Blackman’s limiting factors</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1218;--panel:#121c25;--line:#24323f;--tx:#e8f0f5;--mu:#8da2b3;--lt:#ffd45e;--co:#5fd4c4;--ox:#8fd0ff;--ok:#9be26b;--bad:#ff8a6b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif}
+.wrap{max-width:1280px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0 0 2px;font-weight:650}
+.sub{color:var(--mu);margin:0 0 14px;font-size:13px}
+.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+canvas{width:100%;display:block;border-radius:6px}
+#stage{height:380px;background:#071018}
+#chart{height:300px;background:#0d151c}
+.num{font-family:ui-monospace,Consolas,monospace}
+.read{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.big{font-size:40px;font-weight:700;color:var(--ox);line-height:1}
+.unit{color:var(--mu);font-size:13px}
+.badge{padding:6px 12px;border-radius:99px;font-weight:650;font-size:14px;border:1px solid}
+.b-l{color:var(--lt);border-color:var(--lt);background:#2a2410}
+.b-c{color:var(--co);border-color:var(--co);background:#0f2a27}
+.b-x{color:var(--bad);border-color:var(--bad);background:#2a1510}
+.b-o{color:var(--ok);border-color:var(--ok);background:#172a0e}
+.ctl{margin:10px 0}
+.ctl label{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--mu);margin-bottom:4px}
+.ctl b{color:var(--tx);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--ox);height:28px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+button{background:#1b2a37;color:var(--tx);border:1px solid #33485a;border-radius:7px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer}
+button:hover{background:#243747}button:focus-visible,input:focus-visible{outline:2px solid var(--ox);outline-offset:2px}
+button.pri{background:#1f5f8a;border-color:#3b8fc4}
+button.on{background:#2a4a2a;border-color:var(--ok)}
+.temp{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mu);margin-top:8px;flex-wrap:wrap}
+.lock{color:var(--tx);border:1px solid var(--line);padding:3px 9px;border-radius:6px;background:#0d151c}
+.opt{font-size:13px;color:var(--mu);margin-top:8px}.opt b{color:var(--lt)}
+.tw{overflow-x:auto;margin-top:14px}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:560px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--mu);font-weight:600}
+textarea{width:100%;height:110px;background:#0d151c;color:var(--tx);border:1px solid var(--line);border-radius:6px;font:12px ui-monospace,monospace;margin-top:8px;display:none}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mu);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Elodea canadensis: rate of photosynthesis</h1>
+<p class="sub">Blackman’s law of limiting factors. Change light intensity and dissolved CO₂ and watch the plateau move.</p>
+<div class="grid">
+ <div class="card">
+  <canvas id="stage"></canvas>
+  <div class="row"><button id="microBtn">Micro view: thylakoid vs stroma</button></div>
+ </div>
+ <div class="card">
+  <div class="read">
+   <div><div class="big num" id="rate">0.00</div><div class="unit">cm³ O₂ min⁻¹</div></div>
+   <span class="badge" id="badge">…</span>
+  </div>
+  <div class="ctl"><label><span>Light intensity</span><b class="num" id="iv"></b></label>
+   <input type="range" id="I" min="0" max="15000" step="100"></div>
+  <div class="ctl"><label><span>Dissolved CO₂ (NaHCO₃ equivalent)</span><b class="num" id="cv"></b></label>
+   <input type="range" id="C" min="0" max="0.5" step="0.005"></div>
+  <div class="temp"><span class="lock" id="tlock">🔒 Temperature 25 °C (held constant)</span>
+   <button id="sensBtn">Sensitivity check</button>
+   <input type="range" id="T" min="15" max="45" step="1" value="25" style="width:140px;display:none" aria-label="Temperature"></div>
+  <div class="opt" id="opt"></div>
+  <div class="opt" style="display:none">Efficiency threshold: gain below <b class="num" id="ev"></b> cm³ min⁻¹ per step
+   <input type="range" id="E" min="0.01" max="0.1" step="0.01" value="0.03"></div>
+ </div>
+</div>
+
+<div class="grid" style="margin-top:14px">
+ <div class="card">
+  <canvas id="chart"></canvas>
+  <div class="legend" id="legend"></div>
+  <div class="row"><button class="pri" id="sweepBtn">Run sweep (multi-curve)</button><button id="clrSweep">Clear sweep</button></div>
+ </div>
+ <div class="card">
+  <div class="row" style="margin-top:0"><button class="pri" id="logBtn">Log trial</button><button id="csvBtn">Export CSV</button><button id="clrBtn">Clear table</button></div>
+  <textarea id="csv" readonly aria-label="CSV data"></textarea>
+  <div class="tw"><table><thead><tr><th>#</th><th>Time</th><th>Light intensity</th><th>CO₂ (%)</th><th>Temp (°C)</th><th>Limiting factor</th><th>O₂ (cm³ min⁻¹)</th></tr></thead><tbody id="tb"></tbody></table></div>
+  <div class="opt" id="empty">No trials yet. Set the sliders and choose Log trial.</div>
+ </div>
+</div>
+</div>
+
+<script>
+const IMAX=15000,CMAX=0.5,VMAX=3.3,KC=0.04,KI=1.5625,ALPHA=0.0006,TH=0.95;
+const S={I:6000,C:0.06,T:25,sens:false,micro:false,eps:0.03,log:[],sweepP:0};
+const SW=[0.02,0.05,0.10,0.25,0.50],SWC=['#7aa2ff','#5fd4c4','#9be26b','#ffd45e','#ff8a6b'];
+const $=id=>document.getElementById(id);
+const tf=T=>{const g=t=>Math.pow(2,(t-25)/10)/(1+Math.exp((t-42)/1.5));return g(T)/g(25)};
+const parts=(I,C,T=S.T)=>[ALPHA*I,VMAX*tf(T)*C/(KC+C+C*C/KI)];
+function rate(I,C,T=S.T){const[A,B]=parts(I,C,T);if(A<=0||B<=0)return 0;const s=A+B;return(s-Math.sqrt(s*s-4*TH*A*B))/(2*TH)}
+const rmaxAbs=()=>findOpt().R;
+function limiting(I,C){const[A,B]=parts(I,C),R=rate(I,C),o=findOpt(),Cp=Math.sqrt(KC*KI);
+ if(R>=0.95*o.R)return['Near maximum / enzyme-saturated','b-o'];
+ if(A<B)return['Light-limited','b-l'];
+ return C>Cp?['CO₂ too high (inhibited)','b-x']:['CO₂-limited','b-c']}
+let optKey='',opt=null;
+function findOpt(){const k=S.T;if(k===optKey)return opt;optKey=k;let pk=0;
+ for(let I=0;I<=IMAX;I+=250)for(let C=0;C<=CMAX+1e-9;C+=0.005)pk=Math.max(pk,rate(I,C));
+ opt=null;let best=9;
+ for(let I=0;I<=IMAX;I+=250)for(let C=0;C<=CMAX+1e-9;C+=0.005){if(rate(I,C)>=0.99*pk){const c=I/IMAX+C/CMAX;if(c<best){best=c;opt={I,C,R:pk}}}}
+ return opt}
+function findOldOpt(){const k=S.T+'|'+S.eps;if(k===optKey)return opt;optKey=k;opt=null;let best=9,Rm=rmaxAbs();
+ for(let I=0;I<=IMAX;I+=250)for(let C=0;C<=CMAX+1e-9;C+=0.005){const R=rate(I,C);
+  if(R<0.5*Rm)continue;
+  if(rate(I+500,C)-R<S.eps&&rate(I,C+0.01)-R<S.eps){const c=I/IMAX+C/CMAX;if(c<best){best=c;opt={I,C,R}}}}
+ return opt}
+const fmtC=c=>c.toFixed(3)+' %  (≈ '+(c*119).toFixed(1)+' mmol dm⁻³)';
+
+/* ---------- controls ---------- */
+function sync(){S.I=+$('I').value;S.C=+$('C').value;S.T=S.sens?+$('T').value:25;S.eps=+$('E').value;
+ $('iv').textContent=S.I.toLocaleString();$('cv').textContent=fmtC(S.C);$('ev').textContent=S.eps.toFixed(2);
+ const R=rate(S.I,S.C),[t,c]=limiting(S.I,S.C);
+ $('rate').textContent=R.toFixed(2);const b=$('badge');b.textContent=t;b.className='badge '+c;
+ const o=findOpt();
+ $('opt').innerHTML=o?'Maximum obtainable rate reached at light intensity <b class="num">'+o.I.toLocaleString()+'</b> and <b class="num">'+o.C.toFixed(3)+' %</b> CO₂: <b class="num">'+o.R.toFixed(2)+'</b> cm³ min⁻¹ at '+S.T+' °C. Above about '+Math.sqrt(KC*KI).toFixed(2)+' % CO₂ the rate falls (bicarbonate stress).':'';
+ $('tlock').textContent=S.sens?'⚠ Sensitivity check: '+S.T+' °C':'🔒 Temperature 25 °C (held constant)';
+ drawChart()}
+['I','C','T','E'].forEach(i=>$(i).addEventListener('input',sync));
+$('I').value=S.I;$('C').value=S.C;
+$('sensBtn').onclick=()=>{S.sens=!S.sens;$('sensBtn').classList.toggle('on',S.sens);$('T').style.display=S.sens?'':'none';if(!S.sens)$('T').value=25;sync()};
+$('microBtn').onclick=()=>{S.micro=!S.micro;$('microBtn').classList.toggle('on',S.micro)};
+$('sweepBtn').onclick=()=>{S.sweepP=0.001};
+$('clrSweep').onclick=()=>{S.sweepP=0;drawChart()};
+
+/* ---------- log / csv ---------- */
+function renderLog(){const tb=$('tb');tb.innerHTML='';
+ S.log.forEach((r,i)=>{const tr=document.createElement('tr');
+  [i+1,r.time,r.I,r.C.toFixed(3),r.T,r.lim,r.R.toFixed(2)].forEach((v,j)=>{const td=document.createElement('td');td.textContent=v;if(j>=2&&j!==5)td.className='num';tr.appendChild(td)});tb.appendChild(tr)});
+ $('empty').style.display=S.log.length?'none':'block'}
+$('logBtn').onclick=()=>{S.log.push({time:new Date().toLocaleTimeString([], {hour12:false}),I:S.I,C:S.C,T:S.T,lim:limiting(S.I,S.C)[0],R:rate(S.I,S.C)});renderLog()};
+$('clrBtn').onclick=()=>{S.log=[];renderLog();$('csv').style.display='none'};
+$('csvBtn').onclick=()=>{
+ const rows=['Trial,Timestamp,Light_intensity,CO2_percent,Temperature_C,Limiting_factor,O2_rate_cm3_per_min'];
+ S.log.forEach((r,i)=>rows.push([i+1,new Date().toISOString().slice(0,10)+' '+r.time,r.I,r.C.toFixed(3),r.T,'"'+r.lim+'"',r.R.toFixed(3)].join(',')));
+ const txt=rows.join('\n'),ta=$('csv');ta.value=txt;ta.style.display='block';ta.focus();ta.select();
+ try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/csv'}));a.download='elodea_trials.csv';a.click()}catch(e){}
+ try{navigator.clipboard.writeText(txt)}catch(e){}};
+
+/* ---------- chart ---------- */
+const ch=$('chart'),cx=ch.getContext('2d');
+function fit(c){const d=devicePixelRatio||1,r=c.getBoundingClientRect();c.width=r.width*d;c.height=r.height*d;c.getContext('2d').setTransform(d,0,0,d,0,0);return[r.width,r.height]}
+function drawChart(){
+ const[w,h]=fit(ch),m={l:52,r:14,t:14,b:42},pw=w-m.l-m.r,ph=h-m.t-m.b,YM=2.8;
+ const X=i=>m.l+i/IMAX*pw,Y=r=>m.t+ph-r/YM*ph;
+ cx.clearRect(0,0,w,h);cx.font='11px system-ui';cx.lineWidth=1;
+ cx.strokeStyle='#24323f';cx.fillStyle='#8da2b3';cx.textAlign='right';
+ for(let y=0;y<=2.5;y+=0.5){cx.beginPath();cx.moveTo(m.l,Y(y));cx.lineTo(w-m.r,Y(y));cx.stroke();cx.fillText(y.toFixed(1),m.l-6,Y(y)+4)}
+ cx.textAlign='center';
+ for(let i=0;i<=IMAX;i+=3000){cx.fillText(i/1000+'k',X(i),m.t+ph+16)}
+ cx.fillText('Light intensity',m.l+pw/2,h-6);
+ cx.save();cx.translate(13,m.t+ph/2);cx.rotate(-Math.PI/2);cx.fillText('Rate of O₂ release (cm³ min⁻¹)',0,0);cx.restore();
+ cx.strokeStyle='#8da2b3';cx.strokeRect(m.l,m.t,pw,ph);
+ const curve=(C,col,wd,frac=1,dash)=>{cx.strokeStyle=col;cx.lineWidth=wd;cx.setLineDash(dash||[]);cx.beginPath();
+  const n=Math.floor(150*frac);for(let k=0;k<=n;k++){const i=IMAX*k/150,r=rate(i,C);k?cx.lineTo(X(i),Y(r)):cx.moveTo(X(i),Y(r))}cx.stroke();cx.setLineDash([])};
+ let leg='';
+ if(S.sweepP>0){SW.forEach((c,j)=>{const f=Math.min(1,Math.max(0,S.sweepP*SW.length-j));if(f>0)curve(c,SWC[j],1.6,f)});
+  SW.forEach((c,j)=>leg+='<span><i style="background:'+SWC[j]+'"></i>'+c.toFixed(2)+' %</span>')}
+ const Rm=rmaxAbs();cx.strokeStyle='#ffd45e';cx.setLineDash([6,4]);cx.lineWidth=1;cx.beginPath();cx.moveTo(m.l,Y(Rm));cx.lineTo(w-m.r,Y(Rm));cx.stroke();cx.setLineDash([]);
+ cx.fillStyle='#ffd45e';cx.textAlign='right';cx.fillText('maximum '+Rm.toFixed(2),w-m.r-4,Y(Rm)-5);
+ curve(S.C,'#e8f0f5',2.6);leg='<span><i style="background:#e8f0f5"></i>current CO₂ '+S.C.toFixed(3)+' %</span>'+leg;
+ const o=findOpt();
+ if(o){const oc=rate(o.I,o.C);cx.fillStyle='#ffd45e';cx.beginPath();const x=X(o.I),y=Y(oc);
+  for(let k=0;k<10;k++){const a=Math.PI*k/5-Math.PI/2,r=k%2?4:9;cx.lineTo(x+r*Math.cos(a),y+r*Math.sin(a))}cx.closePath();cx.fill();
+  leg+='<span><i style="background:#ffd45e"></i>★ maximum rate</span>'}
+ const px=X(S.I),py=Y(rate(S.I,S.C));cx.fillStyle='#8fd0ff';cx.strokeStyle='#0b1218';cx.lineWidth=2;cx.beginPath();cx.arc(px,py,6,0,7);cx.fill();cx.stroke();
+ $('legend').innerHTML=leg+'<span><i style="background:#8fd0ff;border-radius:50%"></i>you are here</span>'}
+
+/* ---------- stage ---------- */
+const st=$('stage'),sx=st.getContext('2d');let bubbles=[],acc=0,last=performance.now(),tt=0;
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function stage(dt){
+ const[w,h]=fit(st),R=rate(S.I,S.C),f=S.I/IMAX;tt+=dt;
+ sx.clearRect(0,0,w,h);
+ const tx=w*0.3,ty=h*0.12,tw=w*0.66,th=h*0.78;
+ // beam
+ const lx=w*0.1,ly=h*0.45;
+ if(f>0){const g=sx.createLinearGradient(lx,0,tx+tw*0.7,0);g.addColorStop(0,'rgba(255,220,110,'+(0.15+0.5*f)+')');g.addColorStop(1,'rgba(255,220,110,0)');
+  sx.fillStyle=g;sx.beginPath();sx.moveTo(lx+16,ly-10);sx.lineTo(tx+tw*0.85,ty);sx.lineTo(tx+tw*0.85,ty+th);sx.lineTo(lx+16,ly+10);sx.fill()}
+ // lamp
+ sx.fillStyle='#3a4856';sx.fillRect(lx-26,ly+22,52,8);sx.fillRect(lx-3,ly+22,6,h*0.42);
+ sx.fillStyle='#55657a';sx.beginPath();sx.arc(lx,ly,24,Math.PI/2,-Math.PI/2);sx.fill();
+ sx.fillStyle='rgba(255,212,94,'+(0.15+0.85*f)+')';sx.shadowColor='#ffd45e';sx.shadowBlur=30*f;sx.beginPath();sx.arc(lx+6,ly,14,0,7);sx.fill();sx.shadowBlur=0;
+ sx.fillStyle='#8da2b3';sx.font='12px system-ui';sx.textAlign='left';sx.fillText('Light intensity '+S.I.toLocaleString(),8,h-8);
+ // tank + water
+ const wg=sx.createLinearGradient(0,ty,0,ty+th);wg.addColorStop(0,'#123a52');wg.addColorStop(1,'#0a2233');
+ sx.fillStyle=wg;sx.fillRect(tx,ty+th*0.08,tw,th*0.92);sx.strokeStyle='#8da2b3';sx.lineWidth=2;sx.strokeRect(tx,ty,tw,th);
+ sx.fillStyle='#8da2b3';sx.textAlign='left';sx.fillText('NaHCO₃ solution '+S.C.toFixed(3)+' % CO₂ · '+S.T+' °C',tx+8,ty+th+16);
+ // elodea
+ const bx=tx+tw*0.5,by=ty+th-8,top=ty+th*0.42;
+ sx.strokeStyle='#4caf50';sx.lineWidth=3;sx.beginPath();sx.moveTo(bx,by);
+ for(let k=1;k<=20;k++){const y=by-(by-top)*k/20;sx.lineTo(bx+Math.sin(tt*1.2+k*0.4)*2.5,y)}sx.stroke();
+ sx.fillStyle='#3e9a45';
+ for(let k=1;k<20;k++){const y=by-(by-top)*k/20,x=bx+Math.sin(tt*1.2+k*0.4)*2.5;
+  for(const s of[-1,1]){sx.beginPath();sx.ellipse(x+s*13,y-3,13,3.2,s*(0.4+Math.sin(tt+k)*0.05),0,7);sx.fill()}}
+ sx.fillStyle='#cfe8c8';sx.fillRect(bx-3,top-4,6,4);
+ // bubbles
+ if(!reduce){acc+=R*4*dt;while(acc>=1){acc--;bubbles.push({x:bx+(Math.random()-0.5)*4,y:top-6,r:2+Math.random()*2.5,p:Math.random()*6})}}
+ bubbles=bubbles.filter(b=>{b.y-=(40+b.r*8)*dt;b.x+=Math.sin(tt*3+b.p)*0.4;return b.y>ty+th*0.06});
+ sx.fillStyle='rgba(180,225,255,.25)';sx.strokeStyle='rgba(200,235,255,.85)';sx.lineWidth=1;
+ bubbles.forEach(b=>{sx.beginPath();sx.arc(b.x,b.y,b.r,0,7);sx.fill();sx.stroke()});
+ // micro view
+ if(S.micro){const[A,B]=parts(S.I,S.C),mx=tx+8,my=ty+8,mw=tw*0.52,mh=96;
+  sx.fillStyle='rgba(8,16,24,.92)';sx.fillRect(mx,my,mw,mh);sx.strokeStyle='#33485a';sx.strokeRect(mx,my,mw,mh);
+  const bar=(y,lab,v,col)=>{sx.fillStyle='#e8f0f5';sx.font='11px system-ui';sx.textAlign='left';sx.fillText(lab,mx+8,y);sx.fillStyle='#1b2a37';sx.fillRect(mx+8,y+4,mw-16,10);sx.fillStyle=col;sx.fillRect(mx+8,y+4,(mw-16)*Math.min(1,v/VMAX),10)};
+  bar(my+18,'Thylakoid: ATP + NADPH supply (light)',A,'#ffd45e');
+  bar(my+46,'Stroma: Calvin cycle capacity (CO₂, RuBisCO)',B,'#5fd4c4');
+  sx.fillStyle='#8da2b3';sx.fillText(A<B?'ATP/NADPH short: Calvin cycle starved of energy':'ATP/NADPH surplus: Calvin cycle is the bottleneck',mx+8,my+84)}
+}
+function loop(now){const dt=Math.min(0.05,(now-last)/1000);last=now;
+ if(S.sweepP>0&&S.sweepP<1){S.sweepP=Math.min(1,S.sweepP+dt/3);drawChart()}
+ stage(dt);requestAnimationFrame(loop)}
+addEventListener('resize',drawChart);
+renderLog();sync();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
